@@ -24,7 +24,7 @@ function nivelMagneto(texto) {
   return 1;
 }
 
-const PASO = { descripcion: 15, habilidades: 16, foto: 19, idiomas: 20, experiencia: 37, borrar_experiencia: 63, formacion: 76, borrar_formacion: 77 };
+const PASO = { descripcion: 15, habilidades: 16, foto: 19, idiomas: 20, experiencia: 37, preferencias: 47, borrar_experiencia: 63, formacion: 76, borrar_formacion: 77 };
 
 const leerPerfilMagneto = () => api("/sign-up/v2/candidate/profile", { auth: true });
 
@@ -236,8 +236,10 @@ export async function compararPerfil() {
     if (!esta) sobra.push(`formacion (id ${s.id}): ${s.title} – ${s.institute}`);
   }
 
-  if (pref.acepta_reubicacion === false && p.availableToMove) sugerencias.push("disponibilidad: Magneto dice que aceptas reubicarte y el perfil maestro dice que no. Cámbialo en la web (Preferencias).");
-  if (/solo remoto/i.test(pref.modalidad || "") && p.availableToHybridWork) sugerencias.push("disponibilidad: Magneto dice que aceptas trabajo híbrido y buscas solo remoto. Cámbialo en la web (Preferencias).");
+  if (pref.acepta_reubicacion === false && p.availableToMove) desactualizado.push("preferencias: Magneto dice que aceptas reubicarte y el perfil maestro dice que no (actualizar-perfil seccion=preferencias).");
+  if (/solo remoto/i.test(pref.modalidad || "") && p.availableToHybridWork) desactualizado.push("preferencias: Magneto dice que aceptas trabajo híbrido y buscas solo remoto (actualizar-perfil seccion=preferencias).");
+  const cargo = datoDePortal(perfil, PORTAL, "cargo");
+  if (cargo && normalizar(cargo) !== normalizar(p.titleOrProfession)) desactualizado.push(`preferencias: cargo "${p.titleOrProfession}" → "${cargo}".`);
   if (!p.openToWork) sugerencias.push("abierto a ofertas está desactivado: actívalo en la web para que te encuentren los reclutadores.");
   if (pref.salario_minimo_laboral_cop && p.salary && p.salary !== pref.salario_minimo_laboral_cop) {
     sugerencias.push(`salario aspirado: Magneto tiene ${p.salary.toLocaleString("es-CO")} y tu mínimo laboral es ${pref.salario_minimo_laboral_cop.toLocaleString("es-CO")}.`);
@@ -251,8 +253,8 @@ export async function compararPerfil() {
     desactualizado,
     sobra,
     sugerencias,
-    secciones_actualizables: ["descripcion", "idiomas", "habilidades", "experiencia", "formacion"],
-    nota: "Disponibilidad, salario y ciudad se editan en la web (Preferencias): el MCP no los cambia para no tocar datos personales sin revisión.",
+    secciones_actualizables: ["descripcion", "idiomas", "habilidades", "experiencia", "formacion", "preferencias"],
+    nota: "preferencias cambia cargo, salario, remoto, híbrido, viajar y cambio de domicilio; el resto del formulario se reenvía igual. Ciudad de cada experiencia, datos personales y 'abierto a ofertas' se editan en la web.",
   };
 }
 
@@ -370,6 +372,47 @@ export async function actualizarPerfil({ seccion, aplicar = false, eliminar_ids 
     }
     for (const s of actuales.filter((x) => borrar.has(Number(x.id)))) {
       operaciones.push({ accion: "eliminar", paso: PASO.borrar_formacion, id: s.id, antes: `${s.title} – ${s.institute}`, cuerpo: { studies: [s], clearSection: "studies" } });
+    }
+  }
+
+  if (seccion === "preferencias") {
+    const pref = perfil.preferencias || {};
+    const soloRemoto = /solo remoto/i.test(pref.modalidad || "");
+    const deseado = {
+      titleOrProfession: datoDePortal(perfil, PORTAL, "cargo") || p.titleOrProfession,
+      salary: pref.salario_minimo_laboral_cop || p.salary,
+      availableToRemoteWork: /remot/i.test(pref.modalidad || "") ? true : Boolean(p.availableToRemoteWork),
+      availableToHybridWork: soloRemoto ? false : Boolean(p.availableToHybridWork),
+      availableToMove: typeof pref.acepta_reubicacion === "boolean" ? pref.acepta_reubicacion : Boolean(p.availableToMove),
+      availableToTravel: typeof pref.puede_viajar === "boolean" ? pref.puede_viajar : Boolean(p.availableToTravel),
+    };
+    const etiquetas = {
+      titleOrProfession: "cargo",
+      salary: "salario mínimo",
+      availableToRemoteWork: "remoto",
+      availableToHybridWork: "híbrido",
+      availableToMove: "cambio de domicilio",
+      availableToTravel: "disponible para viajar",
+    };
+    const diferencias = Object.keys(deseado)
+      .filter((k) => (k.startsWith("available") ? Boolean(p[k]) : p[k]) !== deseado[k])
+      .map((k) => `${etiquetas[k]}: ${JSON.stringify(k.startsWith("available") ? Boolean(p[k]) : p[k])} → ${JSON.stringify(deseado[k])}`);
+    if (diferencias.length) {
+      // El formulario de Preferencias se envía completo: lo que no cambia se reenvía tal como está.
+      const cuerpo = {
+        ...deseado,
+        currencyPayId: p.currencyPay?.id,
+        salaryFrequencyId: p.salaryFrequency?.id,
+        candidateSectors: (p.sectors || []).map((s) => s.id),
+        educationLevelId: p.educationLevel?.id,
+        workCityId: (p.workCity || p.city)?.id,
+        internshipType: p.internshipType?.id ?? 0,
+        ...(p.disability ? { disability: p.disability } : {}),
+        candidateJourneys: (p.journeys || []).map((j) => j.id),
+      };
+      const faltan = ["currencyPayId", "salaryFrequencyId", "educationLevelId", "workCityId"].filter((k) => !cuerpo[k]);
+      if (faltan.length) return { estado: "needs_review", seccion, mensaje: `Completa primero en la web las preferencias sin dato (${faltan.join(", ")}).` };
+      operaciones.push({ accion: "actualizar", paso: PASO.preferencias, antes: "Preferencias actuales", despues: diferencias, cuerpo });
     }
   }
 

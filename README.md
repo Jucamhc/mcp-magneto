@@ -72,12 +72,12 @@ Estados de respuesta: `submitted`, `already_applied`, `needs_review` (cuestionar
 | `postular-a-oferta` | Exige `confirmacion: "POSTULAR <id>"`. Una a la vez, sin reintentos |
 | `mis-postulaciones` | Tus procesos en Magneto |
 | `construir-perfil-maestro`, `guardar-perfil-maestro`, `ver-perfil-maestro` | Herramientas estándar del perfil maestro |
-| `ver-mi-perfil`, `comparar-perfil`, `actualizar-perfil` | Hoja de vida. Secciones: `descripcion`, `idiomas`, `habilidades`, `experiencia`, `formacion` |
+| `ver-mi-perfil`, `comparar-perfil`, `actualizar-perfil` | Hoja de vida. Secciones: `descripcion`, `idiomas`, `habilidades`, `experiencia`, `formacion`, `preferencias` |
 | `subir-foto`, `subir-cv`, `listar-mis-cv` | Foto y CV (Magneto guarda un solo CV) |
 
 Las ofertas se identifican por id, slug (`desarrollador-backend-1088350`) o URL. Sin sesión, Magneto solo da el detalle con el slug.
 
-Toda escritura respalda antes lo que había (en `~/.magneto/respaldos/`) y solo borra los ids que pases en `eliminar_ids`. Disponibilidad (remoto, híbrido, reubicación), salario aspirado y ciudad se editan en la web, en Preferencias: ese formulario incluye datos personales que el MCP no toca.
+Toda escritura respalda antes lo que había (en `~/.magneto/respaldos/`) y solo borra los ids que pases en `eliminar_ids`. La sección `preferencias` cambia cargo, salario mínimo, remoto, híbrido, viajar y cambio de domicilio; el resto del formulario (sector, nivel de estudios, ciudad, jornadas) se reenvía tal como está. Datos personales, ciudad de cada experiencia y "abierto a ofertas" se editan en la web.
 
 ## Perfil maestro
 
@@ -91,7 +91,8 @@ Campos que usa Magneto (ver `perfil-maestro.ejemplo.json`):
 | `habilidades_clave.tecnicas`, `aptitudes` | Habilidades (Magneto admite 10) |
 | `idiomas[]` | `idioma` y `nivel` (Básico, Intermedio, Avanzado, Nativo) |
 | `anios_experiencia` | Años totales y por tecnología (p. ej. `"react": "3"`) para responder cuestionarios |
-| `preferencias` | `modalidad`, `salario_minimo_laboral_cop`, `salario_minimo_prestacion_cop`, `acepta_reubicacion` |
+| `preferencias` | `modalidad`, `salario_minimo_laboral_cop`, `salario_minimo_prestacion_cop`, `acepta_reubicacion`, `puede_viajar` |
+| `portales.magneto.cargo` | Cargo en el que buscas empleo (Preferencias de Magneto) |
 | `respuestas_frecuentes` | Respuestas reutilizables: se proponen cuando su clave o su texto coinciden con la pregunta |
 | `datos_personales.foto`, `cv_pdf` | Foto (JPG o PNG) y CV en PDF |
 
@@ -126,6 +127,7 @@ Lectura: `GET /sign-up/v2/candidate/profile`. Escritura: `PATCH /sign-up/v2/cand
 | Foto | 19 | `{profileImageFileName, originalFileName}` |
 | Idiomas | 20 | `{languages: [{id?, languageId, name, level}]}` (lista completa; catálogo en `/sign-up/v1/languages`) |
 | Experiencia | 37 / borrar 63 | `{experiences: [{id?, position, company, description, atPresent, startDate, endDate}]}`; borrar añade `clearSection: "experiences"` |
+| Preferencias | 47 | `{titleOrProfession, salary, currencyPayId, salaryFrequencyId, candidateSectors, educationLevelId, workCityId, availableTo{Move,RemoteWork,Travel,HybridWork}, internshipType, candidateJourneys}`; enviar `disability` solo si existe (con `null` responde 502) |
 | Formación | 76 / borrar 77 | `{studies: [{id?, institute, profession, title, inProgress, startDate, endDate}]}`; borrar añade `clearSection: "studies"` |
 
 Niveles de idiomas y habilidades: 1 básico, 2 intermedio, 3 avanzado, 4 profesional o nativo. Fechas `AAAA-MM-DD`. CV: `PUT /sign-up/v1/candidate/upload-cv` (multipart, campo `file`).
