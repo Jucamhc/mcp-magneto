@@ -1,0 +1,16 @@
+node_modules/
+*.log
+.env
+.env.*
+
+# Datos personales: nunca dentro del repositorio
+perfil-maestro.json
+cookies.json
+sesion.json
+catalogos.json
+chrome-profile/
+respaldos/
+*.pdf
+*.jpg
+*.jpeg
+*.png

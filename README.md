@@ -1,0 +1,137 @@
+# mcp-magneto
+
+Servidor MCP para [Magneto](https://www.magneto365.com) (magneto365.com, Colombia). Con él puedes:
+
+- Buscar ofertas, ver su detalle y evaluar si encajan con tu perfil.
+- Responder el cuestionario de filtro y postular, una oferta a la vez y con tu confirmación explícita.
+- Mantener tu hoja de vida al día a partir de un archivo único con tus datos: el **perfil maestro**.
+
+Funciona con cualquier cuenta de candidato de Magneto. Ningún dato personal está escrito en el código: todo sale del perfil maestro o de la hoja de vida que ya tengas en Magneto.
+
+## Instalación
+
+Requisitos: Node.js 20 o superior y un navegador basado en Chromium (Chrome, Edge, Brave o Chromium), que solo se usa para iniciar sesión.
+
+```bash
+git clone <url-del-repositorio> mcp-magneto
+cd mcp-magneto
+npm install
+```
+
+Es autónomo: incluye el estándar del perfil maestro (`src/perfil-maestro.js`, `perfil-maestro.schema.json` y [`PERFIL-MAESTRO.md`](PERFIL-MAESTRO.md)). Los demás MCP de empleo traen la misma copia, así que todos comparten el mismo perfil.
+
+Regístralo en tu cliente MCP (por ejemplo `~/.cursor/mcp.json`):
+
+```json
+{
+  "mcpServers": {
+    "magneto": {
+      "command": "node",
+      "args": ["/ruta/a/mcp-magneto/src/index.js"],
+      "env": { "PERFIL_MAESTRO": "/ruta/a/mi/perfil-maestro.json" }
+    }
+  }
+}
+```
+
+### Variables de entorno (todas opcionales)
+
+| Variable | Por defecto | Para qué |
+|---|---|---|
+| `PERFIL_MAESTRO` | `~/.perfil-maestro/perfil-maestro.json` | Ruta de tu perfil maestro (la misma para todos los MCP) |
+| `RAIZ_ARCHIVOS` | carpeta del perfil maestro | Base para las rutas relativas de `foto` y `cv_pdf` |
+| `MAGNETO_DATA_DIR` | `~/.magneto` | Sesión (token), perfil del navegador y respaldos |
+| `CHROME_PATH` | se detecta | Ruta del ejecutable del navegador si no está en la ubicación habitual |
+
+La sesión y los respaldos quedan en `~/.magneto/`, fuera de carpetas sincronizadas. El MCP nunca muestra tokens, cookies ni credenciales.
+
+## Primeros pasos
+
+1. `iniciar-sesion`: abre el navegador en el login de Magneto. Entras a mano (código por correo, Google, Microsoft o LinkedIn) y el MCP guarda el token. El token dura 24 horas; como el navegador del MCP conserva tu sesión, volver a llamar a `iniciar-sesion` la renueva sola en unos segundos.
+2. Si aún no tienes perfil maestro, `construir-perfil-maestro` te pide una fuente: la URL de tu LinkedIn, tu CV en PDF con tu foto, o lo que ya tienes en Magneto (`desde_portal: true`). Cuando lo apruebes, `guardar-perfil-maestro` lo valida y lo guarda.
+3. `comparar-perfil`: muestra qué falta, qué está desactualizado y qué sobra en Magneto frente al perfil maestro.
+4. `actualizar-perfil` por sección: primero sin `aplicar`, para ver el plan antes → después; luego con `aplicar: true`.
+
+## Flujo de postulación
+
+1. `buscar-ofertas` → `detalle-de-oferta` → `evaluar-encaje`.
+2. `preguntas-de-postulacion`: indica si ya estás postulado y lista las preguntas del cuestionario de filtro (todas obligatorias).
+3. `proponer-respuestas`: propone respuestas con el perfil maestro y las clasifica en `respaldada`, `requiere_confirmacion` o `sin_respaldo`. Las dos últimas se resuelven con el usuario: nunca se inventan.
+4. `postular-a-oferta` con `confirmacion: "POSTULAR <id>"` y las respuestas aprobadas. En Magneto el cuestionario y la postulación van en la misma petición.
+
+Estados de respuesta: `submitted`, `already_applied`, `needs_review` (cuestionario incompleto, datos extra exigidos o postulación que quedó como preseleccionada por perfil incompleto), `expired`, `sesion_expirada`, `limite_de_peticiones` y `error`.
+
+## Herramientas
+
+| Herramienta | Qué hace |
+|---|---|
+| `estado-de-sesion`, `iniciar-sesion` | Sesión |
+| `buscar-ofertas`, `detalle-de-oferta` | Búsqueda (sin sesión; con sesión indica si ya te postulaste) |
+| `evaluar-encaje` | Compara la oferta con tus preferencias (modalidad, salario según contrato, tecnologías declaradas e inglés) |
+| `preguntas-de-postulacion`, `proponer-respuestas` | Lee el cuestionario de filtro y propone respuestas con datos del perfil maestro |
+| `postular-a-oferta` | Exige `confirmacion: "POSTULAR <id>"`. Una a la vez, sin reintentos |
+| `mis-postulaciones` | Tus procesos en Magneto |
+| `construir-perfil-maestro`, `guardar-perfil-maestro`, `ver-perfil-maestro` | Herramientas estándar del perfil maestro |
+| `ver-mi-perfil`, `comparar-perfil`, `actualizar-perfil` | Hoja de vida. Secciones: `descripcion`, `idiomas`, `habilidades`, `experiencia`, `formacion` |
+| `subir-foto`, `subir-cv`, `listar-mis-cv` | Foto y CV (Magneto guarda un solo CV) |
+
+Las ofertas se identifican por id, slug (`desarrollador-backend-1088350`) o URL. Sin sesión, Magneto solo da el detalle con el slug.
+
+Toda escritura respalda antes lo que había (en `~/.magneto/respaldos/`) y solo borra los ids que pases en `eliminar_ids`. Disponibilidad (remoto, híbrido, reubicación), salario aspirado y ciudad se editan en la web, en Preferencias: ese formulario incluye datos personales que el MCP no toca.
+
+## Perfil maestro
+
+Campos que usa Magneto (ver `perfil-maestro.ejemplo.json`):
+
+| Campo | Uso |
+|---|---|
+| `resumen.es` | Descripción del perfil (máx. 2.000 caracteres). Para fijar otra, usa `portales.magneto.descripcion` |
+| `experiencia[]` | `empresa`, `cargo` (máx. 120), `inicio`/`fin` (`AAAA-MM`, `fin: null` = actual), `descripcion_empresa`, `logros_es[]`, `tecnologias[]` |
+| `formacion[]` | `institucion`, `titulo_es`, `inicio`, `fin`, `graduado` |
+| `habilidades_clave.tecnicas`, `aptitudes` | Habilidades (Magneto admite 10) |
+| `idiomas[]` | `idioma` y `nivel` (Básico, Intermedio, Avanzado, Nativo) |
+| `anios_experiencia` | Años totales y por tecnología (p. ej. `"react": "3"`) para responder cuestionarios |
+| `preferencias` | `modalidad`, `salario_minimo_laboral_cop`, `salario_minimo_prestacion_cop`, `acepta_reubicacion` |
+| `respuestas_frecuentes` | Respuestas reutilizables: se proponen cuando su clave o su texto coinciden con la pregunta |
+| `datos_personales.foto`, `cv_pdf` | Foto (JPG o PNG) y CV en PDF |
+
+## Referencia técnica
+
+Magneto no tiene API pública para candidatos; la web usa `https://api.magneto365.com` con un JWT en `Authorization: Bearer` (cookie `access_token` de `.magneto365.com`, válida 24 h). Las lecturas se reintentan una vez si hay 429; los envíos nunca.
+
+### Ofertas (`/jobs`)
+
+| Uso | Endpoint |
+|---|---|
+| Búsqueda pública / con sesión | `GET /jobs/v1/public/jobs/search` / `GET /jobs/v1/jobs/search` |
+| Detalle público (slug) / con sesión (id) | `GET /jobs/v1/public/jobs/<slug>` / `GET /jobs/v1/jobs/<id>` |
+| Ubicaciones | `GET /jobs/v1/public/locations?term=&country_id=47` (Colombia: `C47`, ciudades `CT…`) |
+| Cuestionario | `GET /jobs/v1/questionnaire/<id>` y `GET /jobs/v1/questionnaire/already-answered/<id>` |
+| Postular | `POST /jobs/v1/jobs/apply` con `{jobId, suggestedByMatcher, sourceOrigins, utmPayload, questionnaires?}` |
+| Mis procesos | `GET /jobs/v2/my-processes?page=` y `/jobs/v2/my-processes/counters` |
+| Datos extra exigidos | `POST /sign-up-forms/v1/schema/apply` con `{id}` (ofertas con `templateId`) |
+
+Parámetros de búsqueda: `paginator[page]`, `paginator[pageSize]` (20 o 30), `filters[locations][0]`, `filters[work_modality][0]` (`remote`, `hybrid`, `onSite`), `filters[contract_type_id][0]` (1 fijo, 2 indefinido, 3 temporal, 4 obra o labor, 5 prestación de servicios, 6 aprendizaje), `order[field]` (`_score` o `publish_date`), `queries[0][field]=all`, `queries[0][term]`.
+
+Respuestas del cuestionario: `questionnaires: [{id, questions: [{id, type, openAnswer} | {id, type, answer: [{id, titleAnswer}]}]}]`. Tipos: 0 opción única, 1 opción múltiple, 2 texto corto (140), 3 texto largo (2.500). Si la respuesta trae `applicationId`, la postulación quedó enviada; si trae `level` y `missingFields`, quedó preseleccionada por perfil incompleto.
+
+### Hoja de vida (`/sign-up`)
+
+Lectura: `GET /sign-up/v2/candidate/profile`. Escritura: `PATCH /sign-up/v2/candidate` con `{...sección, step}` y la cabecera `x-schema-response: profile-v2`.
+
+| Sección | `step` | Cuerpo |
+|---|---|---|
+| Descripción | 15 | `{profileDescription}` |
+| Habilidades | 16 | `{skills: [{id?, name, level}]}` (lista completa) |
+| Foto | 19 | `{profileImageFileName, originalFileName}` |
+| Idiomas | 20 | `{languages: [{id?, languageId, name, level}]}` (lista completa; catálogo en `/sign-up/v1/languages`) |
+| Experiencia | 37 / borrar 63 | `{experiences: [{id?, position, company, description, atPresent, startDate, endDate}]}`; borrar añade `clearSection: "experiences"` |
+| Formación | 76 / borrar 77 | `{studies: [{id?, institute, profession, title, inProgress, startDate, endDate}]}`; borrar añade `clearSection: "studies"` |
+
+Niveles de idiomas y habilidades: 1 básico, 2 intermedio, 3 avanzado, 4 profesional o nativo. Fechas `AAAA-MM-DD`. CV: `PUT /sign-up/v1/candidate/upload-cv` (multipart, campo `file`).
+
+## Pendiente de verificar
+
+- Las escrituras de la hoja de vida, la foto y el CV salen del código de la web, pero aún no se han probado contra una cuenta real.
+- El formato de las filas de `mis-postulaciones` (la cuenta de prueba no tenía procesos).
+- Ofertas con `templateId` (datos extra del registro) y preguntas de opción múltiple.

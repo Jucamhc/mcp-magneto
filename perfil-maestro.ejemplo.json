@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "actualizado": "2026-01-15",
+  "datos_personales": {
+    "nombre": "Ana Pérez",
+    "ciudad": "Medellín",
+    "pais": "Colombia",
+    "zona_horaria": "UTC-5",
+    "telefono": "+57 300 000 0000",
+    "correo": "ana.perez@example.com",
+    "linkedin": "https://www.linkedin.com/in/ana-perez-ejemplo/",
+    "github": "https://github.com/ana-perez-ejemplo",
+    "portafolio": "",
+    "foto": "foto.jpg"
+  },
+  "titular": { "es": "Analista de datos | SQL · Python · Power BI" },
+  "resumen": {
+    "es": "Analista de datos con 5 años de experiencia construyendo reportes y modelos para áreas comerciales y financieras."
+  },
+  "profesion": "Ingeniería Industrial",
+  "experiencia": [
+    {
+      "empresa": "Empresa Ejemplo S.A.S.",
+      "descripcion_empresa": "Comercio minorista",
+      "cargo": "Analista de datos",
+      "inicio": "2022-02",
+      "fin": null,
+      "modalidad": "Remoto",
+      "ubicacion": "Medellín, Antioquia, Colombia",
+      "logros_es": ["Tablero de ventas en Power BI usado por 40 tiendas; -60 % en tiempo de cierre mensual."],
+      "tecnologias": ["SQL", "Python", "Power BI"],
+      "portales": { "elempleo": { "cargo_equivalente": "Analista de datos", "sector": "Comercio al por menor" } }
+    }
+  ],
+  "formacion": [
+    {
+      "institucion": "Universidad de Antioquia",
+      "titulo_es": "Ingeniería Industrial",
+      "nivel": "Universitaria",
+      "inicio": "2015-01",
+      "fin": "2020-06",
+      "graduado": true
+    }
+  ],
+  "certificaciones": [{ "nombre": "Análisis de datos con Python", "emisor": "Plataforma X", "fecha": "2023-05" }],
+  "aptitudes": { "datos": ["SQL", "Python", "Power BI", "Excel avanzado"] },
+  "habilidades_clave": {
+    "tecnicas": ["SQL", "Python", "Power BI"],
+    "blandas": ["Pensamiento analítico", "Comunicación efectiva", "Trabajo en equipo"]
+  },
+  "idiomas": [
+    { "idioma": "Español", "nivel": "Nativo" },
+    { "idioma": "Inglés", "nivel": "Intermedio" }
+  ],
+  "preferencias": {
+    "modalidad": "Solo remoto",
+    "acepta_reubicacion": false,
+    "puede_viajar": false,
+    "paises": ["Colombia"],
+    "salario_minimo_laboral_cop": 5000000,
+    "salario_minimo_prestacion_cop": 6000000,
+    "disponibilidad": "Tiempo completo"
+  },
+  "seguridad_social": {
+    "pension_obligatoria": "Porvenir",
+    "cesantias": "Porvenir",
+    "pension_voluntaria": null,
+    "eps": "EPS Sura",
+    "caja_compensacion": "Comfama"
+  },
+  "cv_pdf": "cv-ana-perez.pdf",
+  "respuestas_frecuentes": {},
+  "portales": { "elempleo": { "area_cursos": "Computación y Nuevas Tecnologías" } },
+  "pendientes_de_confirmar": []
+}

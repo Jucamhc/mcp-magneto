@@ -1,0 +1,32 @@
+{
+  "name": "mcp-magneto",
+  "version": "0.1.0",
+  "description": "Servidor MCP para buscar ofertas, postular y mantener la hoja de vida en Magneto (magneto365.com, Colombia).",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "mcp-magneto": "src/index.js"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "PERFIL-MAESTRO.md",
+    "perfil-maestro.schema.json",
+    "perfil-maestro.ejemplo.json",
+    "LICENSE"
+  ],
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "ajv": "^8.20.0",
+    "unpdf": "^1.8.1",
+    "puppeteer-core": "^25.12.0",
+    "zod": "^4.6.5"
+  }
+}
