@@ -8,12 +8,14 @@ Servidor MCP para [Magneto](https://www.magneto365.com) (magneto365.com, Colombi
 
 Funciona con cualquier cuenta de candidato de Magneto. Ningún dato personal está escrito en el código: todo sale del perfil maestro o de la hoja de vida que ya tengas en Magneto.
 
+> **Proyecto no oficial.** No está afiliado a Magneto ni respaldado por ella. Usa la API interna que consume su web, que puede cambiar sin aviso y romper alguna herramienta. Cada quien es responsable de usarlo de acuerdo con los términos de uso de Magneto. Las postulaciones son reales y no se pueden deshacer.
+
 ## Instalación
 
 Requisitos: Node.js 20 o superior y un navegador basado en Chromium (Chrome, Edge, Brave o Chromium), que solo se usa para iniciar sesión.
 
 ```bash
-git clone <url-del-repositorio> mcp-magneto
+git clone https://github.com/Jucamhc/mcp-magneto.git
 cd mcp-magneto
 npm install
 ```
