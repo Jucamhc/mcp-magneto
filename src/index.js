@@ -141,7 +141,7 @@ herramienta(
   "actualizar-perfil",
   "Actualiza una sección de la hoja de vida desde el perfil maestro. Sin aplicar devuelve el plan exacto (antes → después) para mostrarlo al usuario; con aplicar=true respalda en ~/.magneto/respaldos/ y guarda. Solo borra los ids indicados en eliminar_ids.",
   {
-    seccion: z.enum(["descripcion", "idiomas", "habilidades", "experiencia", "formacion", "preferencias"]),
+    seccion: z.enum(["descripcion", "idiomas", "habilidades", "experiencia", "formacion", "certificaciones", "preferencias"]),
     aplicar: z.boolean().optional().describe("false (por defecto) = solo plan. true = guardar, tras la confirmación del usuario."),
     eliminar_ids: z.array(z.number().int()).optional().describe("Ids de entradas sobrantes que el usuario confirmó borrar."),
   },

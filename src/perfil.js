@@ -44,7 +44,7 @@ async function idPais(nombre) {
 
 const idDe = (v) => (v && typeof v === "object" ? v.id : v) ?? null;
 
-const PASO = { descripcion: 15, habilidades: 16, foto: 19, idiomas: 20, experiencia: 37, preferencias: 47, borrar_experiencia: 63, formacion: 76, borrar_formacion: 77 };
+const PASO = { descripcion: 15, habilidades: 16, foto: 19, idiomas: 20, experiencia: 37, preferencias: 47, borrar_experiencia: 63, formacion: 76, borrar_formacion: 77, certificacion: 60, borrar_certificacion: 67 };
 
 const leerPerfilMagneto = () => api("/sign-up/v2/candidate/profile", { auth: true });
 
@@ -270,6 +270,10 @@ export async function compararPerfil() {
     if (!esta) sobra.push(`formacion (id ${s.id}): ${s.title} – ${s.institute}`);
   }
 
+  const certMg = (p.certifications || []).map((c) => normalizar(c.name));
+  const faltanCert = (perfil.certificaciones || []).filter((c) => !certMg.includes(normalizar(c.nombre))).map((c) => c.nombre);
+  if (faltanCert.length) faltan.push(`certificaciones: ${faltanCert.join(", ")} (actualizar-perfil seccion=certificaciones).`);
+
   if (pref.acepta_reubicacion === false && p.availableToMove) desactualizado.push("preferencias: Magneto dice que aceptas reubicarte y el perfil maestro dice que no (actualizar-perfil seccion=preferencias).");
   if (/solo remoto/i.test(pref.modalidad || "") && p.availableToHybridWork) desactualizado.push("preferencias: Magneto dice que aceptas trabajo híbrido y buscas solo remoto (actualizar-perfil seccion=preferencias).");
   const cargo = datoDePortal(perfil, PORTAL, "cargo");
@@ -287,7 +291,7 @@ export async function compararPerfil() {
     desactualizado,
     sobra,
     sugerencias,
-    secciones_actualizables: ["descripcion", "idiomas", "habilidades", "experiencia", "formacion", "preferencias"],
+    secciones_actualizables: ["descripcion", "idiomas", "habilidades", "experiencia", "formacion", "certificaciones", "preferencias"],
     nota: "preferencias cambia cargo, salario, remoto, híbrido, viajar y cambio de domicilio; el resto del formulario se reenvía igual. Ciudad de cada experiencia, datos personales y 'abierto a ofertas' se editan en la web.",
   };
 }
@@ -410,6 +414,23 @@ export async function actualizarPerfil({ seccion, aplicar = false, eliminar_ids 
     }
     for (const s of actuales.filter((x) => borrar.has(Number(x.id)))) {
       operaciones.push({ accion: "eliminar", paso: PASO.borrar_formacion, id: s.id, antes: `${s.title} – ${s.institute}`, cuerpo: { studies: [s], clearSection: "studies" } });
+    }
+  }
+
+  if (seccion === "certificaciones") {
+    const actuales = p.certifications || [];
+    for (const c of perfil.certificaciones || []) {
+      if (actuales.some((a) => normalizar(a.name) === normalizar(c.nombre))) continue;
+      const deseada = {
+        name: c.nombre,
+        institution: c.emisor || "",
+        expeditionDate: c.fecha ? fechaMagneto(c.fecha) : null,
+        ...(c.url || c.credencial ? { credentialUrl: c.url || c.credencial } : {}),
+      };
+      operaciones.push({ accion: "crear", paso: PASO.certificacion, despues: `${deseada.name} – ${deseada.institution}${c.fecha ? ` (${c.fecha})` : ""}`, cuerpo: { certifications: [deseada] } });
+    }
+    for (const c of actuales.filter((x) => borrar.has(Number(x.id)))) {
+      operaciones.push({ accion: "eliminar", paso: PASO.borrar_certificacion, id: c.id, antes: `${c.name} – ${c.institution}`, cuerpo: { certifications: [c], clearSection: "certifications" } });
     }
   }
 
