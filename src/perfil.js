@@ -24,6 +24,26 @@ function nivelMagneto(texto) {
   return 1;
 }
 
+// Tipo de estudio (catálogo /sign-up/v1/education/levels); Magneto lo exige junto al país para completar postulaciones.
+function nivelEstudio(titulo) {
+  const t = normalizar(titulo);
+  if (/doctor|phd/.test(t)) return 9;
+  if (/especializa|maestr|magister|master|mba/.test(t)) return 5;
+  if (/^tecnolog/.test(t)) return 3;
+  if (/^tecnic/.test(t)) return 2;
+  if (/ingenier|licenciatura|profesional|administracion|contadur|derecho|medicina|psicolog|economia|b\.?sc/.test(t)) return 4;
+  if (/bachiller/.test(t)) return 1;
+  return null;
+}
+
+async function idPais(nombre) {
+  if (!nombre) return null;
+  const r = await api("/sign-up/v1/countries/active", { auth: "opcional" });
+  return (r.rows || r || []).find((c) => normalizar(c.name) === normalizar(nombre))?.id ?? null;
+}
+
+const idDe = (v) => (v && typeof v === "object" ? v.id : v) ?? null;
+
 const PASO = { descripcion: 15, habilidades: 16, foto: 19, idiomas: 20, experiencia: 37, preferencias: 47, borrar_experiencia: 63, formacion: 76, borrar_formacion: 77 };
 
 const leerPerfilMagneto = () => api("/sign-up/v2/candidate/profile", { auth: true });
@@ -154,7 +174,7 @@ function diferenciasExperiencia(actual, deseada) {
   return cambios;
 }
 
-function formacionDeseada(f) {
+function formacionDeseada(f, paisId = null) {
   const titulo = f.titulo_es || f.titulo || "";
   return {
     institute: f.institucion,
@@ -163,7 +183,19 @@ function formacionDeseada(f) {
     inProgress: !f.fin || f.graduado === false,
     startDate: fechaMagneto(f.inicio),
     endDate: f.fin && f.graduado !== false ? fechaMagneto(f.fin) : null,
+    studyType: nivelEstudio(titulo),
+    countryId: paisId,
   };
+}
+
+function diferenciasEstudio(actual, deseada) {
+  const cambios = [];
+  if (mes(actual.startDate) !== mes(deseada.startDate) || Boolean(actual.inProgress) !== deseada.inProgress || (!deseada.inProgress && mes(actual.endDate) !== mes(deseada.endDate))) {
+    cambios.push(`fechas: ${mes(actual.startDate)}–${actual.inProgress ? "en curso" : mes(actual.endDate)} → ${mes(deseada.startDate)}–${deseada.inProgress ? "en curso" : mes(deseada.endDate)}`);
+  }
+  if (!idDe(actual.studyType) && deseada.studyType) cambios.push(`tipo de estudio: vacío → ${deseada.studyType}`);
+  if (!idDe(actual.country) && deseada.countryId) cambios.push(`país: vacío → ${deseada.countryId}`);
+  return cambios;
 }
 
 /** Mismo título y misma institución, admitiendo abreviaturas ("I.U." por "Institución Universitaria"). */
@@ -222,13 +254,15 @@ export async function compararPerfil() {
   const emparejadas = new Set(parejas.filter((x) => x.actual).map((x) => x.actual.id));
   for (const e of p.experiences || []) if (!emparejadas.has(e.id)) sobra.push(`experiencia (id ${e.id}): ${e.position} en ${e.company}`);
 
+  const paisFormacion = (perfil.formacion || []).length ? await idPais(perfil.datos_personales?.pais) : null;
   for (const f of perfil.formacion || []) {
     const actual = (p.studies || []).find((s) => mismoEstudio(s, f.institucion, f.titulo_es || f.titulo));
-    const deseada = formacionDeseada(f);
+    const deseada = formacionDeseada(f, paisFormacion);
     if (!actual && f.mostrar_en_cv === false) continue;
     if (!actual) faltan.push(`formacion: ${deseada.title} – ${f.institucion}.`);
-    else if (mes(actual.startDate) !== mes(deseada.startDate) || Boolean(actual.inProgress) !== deseada.inProgress || (!deseada.inProgress && mes(actual.endDate) !== mes(deseada.endDate))) {
-      desactualizado.push(`formacion (id ${actual.id}) ${deseada.title}: fechas o estado distintos (${mes(actual.startDate)}–${actual.inProgress ? "en curso" : mes(actual.endDate)} → ${mes(deseada.startDate)}–${deseada.inProgress ? "en curso" : mes(deseada.endDate)}).`);
+    else {
+      const cambios = diferenciasEstudio(actual, deseada);
+      if (cambios.length) desactualizado.push(`formacion (id ${actual.id}) ${deseada.title}: ${cambios.join("; ")}.`);
     }
   }
   for (const s of p.studies || []) {
@@ -346,8 +380,9 @@ export async function actualizarPerfil({ seccion, aplicar = false, eliminar_ids 
 
   if (seccion === "formacion") {
     const actuales = p.studies || [];
+    const paisFormacion = await idPais(perfil.datos_personales?.pais);
     for (const f of perfil.formacion || []) {
-      const deseada = formacionDeseada(f);
+      const deseada = formacionDeseada(f, paisFormacion);
       if (f.mostrar_en_cv === false && !actuales.some((s) => mismoEstudio(s, deseada.institute, deseada.title))) {
         operaciones.push({ accion: "aviso", mensaje: `No se agrega "${deseada.title}" porque tiene mostrar_en_cv: false en el perfil maestro.` });
         continue;
@@ -358,15 +393,18 @@ export async function actualizarPerfil({ seccion, aplicar = false, eliminar_ids 
         continue;
       }
       if (borrar.has(Number(actual.id))) continue;
-      const distinto = mes(actual.startDate) !== mes(deseada.startDate) || Boolean(actual.inProgress) !== deseada.inProgress || (!deseada.inProgress && mes(actual.endDate) !== mes(deseada.endDate));
-      if (distinto) {
+      const cambios = diferenciasEstudio(actual, deseada);
+      if (cambios.length) {
+        const { country, studyType, ...resto } = actual;
         operaciones.push({
           accion: "actualizar",
           paso: PASO.formacion,
           id: actual.id,
-          antes: `${mes(actual.startDate)} – ${actual.inProgress ? "en curso" : mes(actual.endDate)}`,
-          despues: `${mes(deseada.startDate)} – ${deseada.inProgress ? "en curso" : mes(deseada.endDate)}`,
-          cuerpo: { studies: [{ ...actual, ...deseada, id: actual.id }] },
+          titulo: deseada.title,
+          cambios,
+          cuerpo: {
+            studies: [{ ...resto, ...deseada, id: actual.id, studyType: deseada.studyType ?? idDe(studyType), countryId: deseada.countryId ?? idDe(country) }],
+          },
         });
       }
     }

@@ -128,7 +128,7 @@ Lectura: `GET /sign-up/v2/candidate/profile`. Escritura: `PATCH /sign-up/v2/cand
 | Idiomas | 20 | `{languages: [{id?, languageId, name, level}]}` (lista completa; catálogo en `/sign-up/v1/languages`) |
 | Experiencia | 37 / borrar 63 | `{experiences: [{id?, position, company, description, atPresent, startDate, endDate}]}`; borrar añade `clearSection: "experiences"` |
 | Preferencias | 47 | `{titleOrProfession, salary, currencyPayId, salaryFrequencyId, candidateSectors, educationLevelId, workCityId, availableTo{Move,RemoteWork,Travel,HybridWork}, internshipType, candidateJourneys}`; enviar `disability` solo si existe (con `null` responde 502) |
-| Formación | 76 / borrar 77 | `{studies: [{id?, institute, profession, title, inProgress, startDate, endDate}]}`; borrar añade `clearSection: "studies"` |
+| Formación | 76 / borrar 77 | `{studies: [{id?, institute, profession, title, inProgress, startDate, endDate, studyType, countryId}]}`; `studyType` es un id de `/sign-up/v1/education/levels` y `countryId` de `/sign-up/v1/countries/active`. Sin ambos, Magneto deja las postulaciones como preaplicación (`missingFields: studies:<id>`). Borrar añade `clearSection: "studies"` |
 
 Niveles de idiomas y habilidades: 1 básico, 2 intermedio, 3 avanzado, 4 profesional o nativo. Fechas `AAAA-MM-DD`. CV: `PUT /sign-up/v1/candidate/upload-cv` (multipart, campo `file`).
 
