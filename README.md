@@ -72,7 +72,7 @@ Estados de respuesta: `submitted`, `already_applied`, `needs_review` (cuestionar
 | `postular-a-oferta` | Exige `confirmacion: "POSTULAR <id>"`. Una a la vez, sin reintentos |
 | `mis-postulaciones` | Tus procesos en Magneto |
 | `construir-perfil-maestro`, `guardar-perfil-maestro`, `ver-perfil-maestro` | Herramientas estándar del perfil maestro |
-| `ver-mi-perfil`, `comparar-perfil`, `actualizar-perfil` | Hoja de vida. Secciones: `descripcion`, `idiomas`, `habilidades`, `experiencia`, `formacion`, `preferencias` |
+| `ver-mi-perfil`, `comparar-perfil`, `actualizar-perfil` | Hoja de vida. Secciones: `descripcion`, `idiomas`, `habilidades`, `experiencia`, `formacion`, `certificaciones`, `preferencias` |
 | `subir-foto`, `subir-cv`, `listar-mis-cv` | Foto y CV (Magneto guarda un solo CV) |
 
 Las ofertas se identifican por id, slug (`desarrollador-backend-1088350`) o URL. Sin sesión, Magneto solo da el detalle con el slug.
@@ -87,7 +87,8 @@ Campos que usa Magneto (ver `perfil-maestro.ejemplo.json`):
 |---|---|
 | `resumen.es` | Descripción del perfil (máx. 2.000 caracteres). Para fijar otra, usa `portales.magneto.descripcion` |
 | `experiencia[]` | `empresa`, `cargo` (máx. 120), `inicio`/`fin` (`AAAA-MM`, `fin: null` = actual), `descripcion_empresa`, `logros_es[]`, `tecnologias[]` |
-| `formacion[]` | `institucion`, `titulo_es`, `inicio`, `fin`, `graduado` |
+| `formacion[]` | `institucion`, `titulo_es`, `inicio`, `fin`, `graduado`; el tipo de estudio se deduce del título y el país de `datos_personales.pais` |
+| `certificaciones[]` | `nombre`, `emisor`, `fecha` (`AAAA-MM`), `url` opcional |
 | `habilidades_clave.tecnicas`, `aptitudes` | Habilidades (Magneto admite 10) |
 | `idiomas[]` | `idioma` y `nivel` (Básico, Intermedio, Avanzado, Nativo) |
 | `anios_experiencia` | Años totales y por tecnología (p. ej. `"react": "3"`) para responder cuestionarios |
@@ -128,12 +129,14 @@ Lectura: `GET /sign-up/v2/candidate/profile`. Escritura: `PATCH /sign-up/v2/cand
 | Idiomas | 20 | `{languages: [{id?, languageId, name, level}]}` (lista completa; catálogo en `/sign-up/v1/languages`) |
 | Experiencia | 37 / borrar 63 | `{experiences: [{id?, position, company, description, atPresent, startDate, endDate}]}`; borrar añade `clearSection: "experiences"` |
 | Preferencias | 47 | `{titleOrProfession, salary, currencyPayId, salaryFrequencyId, candidateSectors, educationLevelId, workCityId, availableTo{Move,RemoteWork,Travel,HybridWork}, internshipType, candidateJourneys}`; enviar `disability` solo si existe (con `null` responde 502) |
+| Certificaciones | 60 / borrar 67 | `{certifications: [{id?, name, institution, expeditionDate, credentialUrl?, attachmentUrl?}]}`; borrar añade `clearSection: "certifications"` |
+| Redes y enlaces / hobbies | 24 / 25 | `{socialMediaLinks}` / `{hobbies}` (no usados por el MCP) |
 | Formación | 76 / borrar 77 | `{studies: [{id?, institute, profession, title, inProgress, startDate, endDate, studyType, countryId}]}`; `studyType` es un id de `/sign-up/v1/education/levels` y `countryId` de `/sign-up/v1/countries/active`. Sin ambos, Magneto deja las postulaciones como preaplicación (`missingFields: studies:<id>`). Borrar añade `clearSection: "studies"` |
 
 Niveles de idiomas y habilidades: 1 básico, 2 intermedio, 3 avanzado, 4 profesional o nativo. Fechas `AAAA-MM-DD`. CV: `PUT /sign-up/v1/candidate/upload-cv` (multipart, campo `file`).
 
 ## Pendiente de verificar
 
-- La subida de foto y de CV sale del código de la web, pero aún no se ha probado contra una cuenta real (las secciones de la hoja de vida sí).
-- El formato de las filas de `mis-postulaciones` (la cuenta de prueba no tenía procesos).
-- Ofertas con `templateId` (datos extra del registro) y preguntas de opción múltiple.
+- La subida de foto sale del código de la web, pero aún no se ha probado contra una cuenta real (el CV y las secciones de la hoja de vida sí).
+- Ofertas con `templateId` (datos extra del registro), preguntas de opción múltiple y de texto largo.
+- Borrar experiencias, estudios o certificaciones (`eliminar_ids`).
