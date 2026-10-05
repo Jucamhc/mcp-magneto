@@ -210,8 +210,11 @@ function respuestaFrecuente(perfil, pregunta) {
   const objetivo = new Set(palabras(pregunta));
   let mejor = null;
   for (const [clave, valor] of Object.entries(perfil.respuestas_frecuentes || {})) {
-    const puntos = palabras(clave.replace(/_/g, " ")).filter((p) => objetivo.has(p)).length * 2 + palabras(valor).filter((p) => objetivo.has(p)).length * 0.25;
-    if (puntos >= 2 && (!mejor || puntos > mejor.puntos)) mejor = { clave, valor, puntos };
+    const delaClave = palabras(clave.replace(/_/g, " "));
+    const coinciden = delaClave.filter((p) => objetivo.has(p)).length;
+    if (coinciden < Math.min(2, delaClave.length)) continue;
+    const puntos = coinciden * 2 + palabras(valor).filter((p) => objetivo.has(p)).length * 0.25;
+    if (!mejor || puntos > mejor.puntos) mejor = { clave, valor, puntos };
   }
   return mejor;
 }
@@ -248,7 +251,7 @@ function proponerUna(p, perfil, oferta, tecnologias) {
     ].filter(Boolean);
     return resultado(frecuente?.valor || partes.join(" "), "requiere_confirmacion", frecuente ? `respuestas_frecuentes.${frecuente.clave}` : "datos personales y preferencias");
   }
-  if (/experiencia|anos|años/.test(q)) {
+  if (/experi|\banos\b|años/.test(q)) {
     const enPregunta = Object.entries(TECNOLOGIAS)
       .filter(([n, re]) => !GENERICAS.includes(n) && re.test(q))
       .map(([n]) => n);

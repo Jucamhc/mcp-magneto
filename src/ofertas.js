@@ -37,7 +37,7 @@ function modalidadDe(r, descripcion = "", pista = null) {
   if (pista) return pista;
   const t = `${r.title || ""}\n${descripcion}`.toLowerCase();
   if (/h[ií]brid/.test(t)) return "Híbrido";
-  if (/remot|teletrabajo|home ?office|desde casa/.test(t)) return "Remoto";
+  if (/remot|teletrabajo|home ?office|desde casa|trabajo en casa|modalidad virtual|cualquier municipio/.test(t)) return "Remoto";
   if (/presencial/.test(t)) return "Presencial";
   return r.isRemote ? "Remoto o híbrido (no especificado)" : "Presencial";
 }
@@ -353,8 +353,11 @@ export async function misPostulaciones({ pagina = 1 } = {}) {
       id: p.vacantId ?? p.jobId ?? p.id,
       titulo: decodificarHtml(p.title || p.vacantName || p.jobTitle || ""),
       empresa: p.confidential ? "Empresa confidencial" : p.companyName || p.company || null,
-      estado: p.stateName || p.status || p.state || null,
-      fecha: (p.applicationDate || p.createdAt || p.date || "").slice(0, 10) || null,
+      estado: p.statusName || (p.preApplicationDate && !p.applicationId ? "Preaplicación (perfil incompleto)" : null),
+      id_postulacion: p.applicationId ?? null,
+      fecha: p.applicationDate || p.preApplicationDate || null,
+      vacante_abierta: p.statusVacancy === 1,
+      postulantes: p.applicants ?? null,
       url: p.jobSlug ? `${WEB_OFERTAS}/${p.jobSlug}` : null,
     })),
     ...(filas.length ? {} : { mensaje: "No hay postulaciones registradas en Magneto." }),
