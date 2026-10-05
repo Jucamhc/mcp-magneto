@@ -87,15 +87,25 @@ Campos que usa Magneto (ver `perfil-maestro.ejemplo.json`):
 |---|---|
 | `resumen.es` | Descripción del perfil (máx. 2.000 caracteres). Para fijar otra, usa `portales.magneto.descripcion` |
 | `experiencia[]` | `empresa`, `cargo` (máx. 120), `inicio`/`fin` (`AAAA-MM`, `fin: null` = actual), `descripcion_empresa`, `logros_es[]`, `tecnologias[]` |
-| `formacion[]` | `institucion`, `titulo_es`, `inicio`, `fin`, `graduado`; el tipo de estudio se deduce del título y el país de `datos_personales.pais` |
+| `formacion[]` | `institucion`, `titulo_es`, `inicio`, `fin`, `graduado`, `nivel` opcional ("Universitaria", "Tecnológica", "Técnico", "Especialización"…). Sin `nivel`, el tipo de estudio se deduce del título; el país sale de `datos_personales.pais`. Los cursos van en `certificaciones` y los estudios sin terminar no se suben (Magneto no tiene ese estado) |
 | `certificaciones[]` | `nombre`, `emisor`, `fecha` (`AAAA-MM`), `url` opcional |
 | `habilidades_clave.tecnicas`, `aptitudes` | Habilidades (Magneto admite 10) |
 | `idiomas[]` | `idioma` y `nivel` (Básico, Intermedio, Avanzado, Nativo) |
-| `anios_experiencia` | Años totales y por tecnología (p. ej. `"react": "3"`) para responder cuestionarios |
-| `preferencias` | `modalidad`, `salario_minimo_laboral_cop`, `salario_minimo_prestacion_cop`, `acepta_reubicacion`, `puede_viajar` |
+| `anios_experiencia` | `total` y años por área o herramienta (p. ej. `"react": "3"`, `"contabilidad": 3`, `"nomina": 2`) para responder cuestionarios |
+| `preferencias` | `modalidad` ("Solo remoto", "Presencial", "Híbrido", "Remoto o híbrido"), `salario_minimo_laboral_cop`, `salario_minimo_prestacion_cop`, `acepta_reubicacion`, `puede_viajar` |
 | `portales.magneto.cargo` | Cargo en el que buscas empleo (Preferencias de Magneto) |
 | `respuestas_frecuentes` | Respuestas reutilizables: se proponen cuando su clave o su texto coinciden con la pregunta |
 | `datos_personales.foto`, `cv_pdf` | Foto (JPG o PNG) y CV en PDF |
+
+### Perfiles de cualquier área
+
+El MCP no asume una profesión. Probado con perfiles de desarrollo, auxiliar contable (presencial) y ejecutivo comercial (híbrido):
+
+- `buscar-ofertas` sin `modalidad` usa la del perfil: "Solo remoto" filtra remoto; presencial o híbrido sin reubicación busca en tu ciudad.
+- `evaluar-encaje` revisa ciudad (presencial o híbrida en otra ciudad), salario según contrato, inglés y, si el perfil declara 3 o más tecnologías de software, el stack; en los demás perfiles busca tus habilidades y herramientas en la descripción.
+- `proponer-respuestas` responde experiencia con tu cargo y tus años (y elige la opción de rango que corresponde, p. ej. "Más de 3 años"), compara mínimos en meses en preguntas sí/no, y usa tu formación y habilidades en preguntas de título o conocimientos. Lo que el perfil no sabe (vehículo, licencia, disponibilidad de turnos…) queda `sin_respaldo`; agrégalo en `respuestas_frecuentes` con claves de dos o más palabras (p. ej. `"licencia_conduccion": "Sí, B1 vigente"`).
+
+Límite: solo Colombia (búsqueda en `C47`, salarios en COP).
 
 ## Referencia técnica
 

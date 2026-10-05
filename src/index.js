@@ -49,10 +49,10 @@ herramienta(
   "buscar-ofertas",
   "Busca ofertas en Magneto (magneto365.com, Colombia). Funciona sin sesión; con sesión indica si ya te postulaste. Magneto no publica la modalidad por oferta: el filtro de modalidad es del portal y en el detalle se infiere del texto.",
   {
-    palabra: z.string().min(2).optional().describe('Palabra clave, p. ej. "desarrollador", "react", "full stack".'),
-    modalidad: z.enum(["remoto", "hibrido", "presencial", "todas"]).optional().describe("Por defecto: remoto."),
+    palabra: z.string().min(2).optional().describe('Palabra clave del cargo, p. ej. "auxiliar contable", "enfermera", "desarrollador".'),
+    modalidad: z.enum(["remoto", "hibrido", "presencial", "todas"]).optional().describe("Por defecto sale de preferencias.modalidad del perfil maestro: remoto si buscas solo remoto; si no, todas."),
     contrato: z.enum(["todos", "indefinido", "fijo", "prestacion_servicios", "obra_labor", "temporal", "aprendizaje"]).optional(),
-    ciudad: z.string().optional().describe("Ciudad de Colombia (p. ej. Cali). Por defecto, todo el país."),
+    ciudad: z.string().optional().describe("Ciudad de Colombia (p. ej. Cali). Por defecto, todo el país; si buscas presencial o híbrido sin reubicarte, tu ciudad."),
     salario_minimo_millones: z.number().min(0).optional().describe("Deja solo ofertas cuyo salario máximo alcance este valor (millones COP). Excluye 'a convenir'."),
     orden: z.enum(["relevancia", "recientes"]).optional(),
     pagina: z.number().int().min(1).optional(),

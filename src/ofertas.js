@@ -1,5 +1,6 @@
 import { PAIS_COLOMBIA, WEB_OFERTAS } from "./config.js";
 import { SesionExpirada, api, decodificarHtml, textoPlano, tokenVigente } from "./http.js";
+import { cargarPerfilMaestro } from "./perfil-maestro.js";
 
 export const MODALIDAD = { remoto: "remote", hibrido: "hybrid", presencial: "onSite" };
 export const CONTRATO = {
@@ -68,9 +69,23 @@ async function idUbicacion(ciudad) {
   return ciudadEncontrada.id;
 }
 
+/** Modalidad y ciudad por defecto según las preferencias del perfil maestro (si lo hay). */
+function filtrosDelPerfil() {
+  let perfil;
+  try {
+    perfil = cargarPerfilMaestro();
+  } catch {
+    return { modalidad: "todas", ciudad: undefined };
+  }
+  const pref = String(perfil.preferencias?.modalidad || "").toLowerCase();
+  if (/^(solo )?remot[oa]$/.test(pref.trim())) return { modalidad: "remoto", ciudad: undefined };
+  const local = /presencial|h[ií]brid/.test(pref) && !/remot/.test(pref) && perfil.preferencias?.acepta_reubicacion === false;
+  return { modalidad: "todas", ciudad: local ? perfil.datos_personales?.ciudad || undefined : undefined };
+}
+
 export async function buscarOfertas({
   palabra,
-  modalidad = "remoto",
+  modalidad,
   contrato = "todos",
   ciudad,
   salario_minimo_millones,
@@ -78,6 +93,9 @@ export async function buscarOfertas({
   pagina = 1,
   por_pagina = 20,
 }) {
+  const porDefecto = filtrosDelPerfil();
+  modalidad = modalidad || porDefecto.modalidad;
+  ciudad = ciudad || porDefecto.ciudad;
   const p = new URLSearchParams();
   p.set("device", "desktop");
   p.set("paginator[page]", String(pagina));
@@ -121,6 +139,7 @@ export async function buscarOfertas({
     total: datos.totalRows ?? filas.length,
     pagina,
     con_sesion: conSesion,
+    filtros: { modalidad, ciudad: ciudad || "Colombia" },
     ...(salario_minimo_millones ? { descartadas_por_salario_o_a_convenir: descartadas } : {}),
     ofertas: filas.map((r) => resumenOferta(r, pista)),
   };

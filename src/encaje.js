@@ -113,7 +113,15 @@ export async function evaluarEncaje(oferta) {
   };
 
   // Modalidad: Magneto no la publica por oferta, se infiere del texto.
-  if (/solo remoto/i.test(pref.modalidad || "")) {
+  const soloRemoto = /^(solo )?remot[oa]$/i.test(String(pref.modalidad || "").trim());
+  const miCiudad = normalizar(perfil.datos_personales?.ciudad);
+  const enMiCiudad = !o.ciudad || !miCiudad || normalizar(o.ciudad).includes(miCiudad);
+  if (!soloRemoto && !/^remoto$/i.test(o.modalidad) && !enMiCiudad && pref.acepta_reubicacion !== true) {
+    const segura = /^(presencial|h[ií]brido)$/i.test(o.modalidad);
+    bajar(segura ? "no_encaja" : "encaja_parcial");
+    motivos.push(`${segura ? `Es ${o.modalidad.toLowerCase()}` : "Puede ser presencial o híbrida"} en ${o.ciudad} y vives en ${perfil.datos_personales.ciudad}${pref.acepta_reubicacion === false ? " (no aceptas reubicarte)" : ""}: confirma si te queda cerca.`);
+  }
+  if (soloRemoto) {
     if (/^(presencial|h[ií]brido)$/i.test(o.modalidad)) {
       bajar("no_encaja");
       motivos.push(`Modalidad ${o.modalidad} en ${o.ciudad || "ciudad no indicada"}; solo buscas remoto.`);
@@ -148,7 +156,12 @@ export async function evaluarEncaje(oferta) {
   // Stack (solo si el perfil declara tecnologías del catálogo)
   const { propias, ajenas } = clasificarTecnologias(perfil);
   const coincidencias = Object.entries(propias).filter(([, re]) => re.test(texto)).map(([n]) => n);
-  const perfilTecnico = Object.keys(propias).some((n) => n in TECNOLOGIAS && !GENERICAS.includes(n));
+  // Perfil de software: al menos 3 tecnologías del catálogo (un CRM o un ERP sueltos no lo convierten en técnico).
+  const perfilTecnico = Object.keys(propias).filter((n) => n in TECNOLOGIAS && !GENERICAS.includes(n)).length >= 3;
+  if (!perfilTecnico && Object.keys(propias).length && !coincidencias.length) {
+    bajar("encaja_parcial");
+    motivos.push("No encontré en la descripción ninguna de las habilidades o herramientas de tu perfil.");
+  }
   if (perfilTecnico) {
     const ajenasTitulo = Object.entries(ajenas).filter(([, re]) => re.test(titulo)).map(([n]) => n);
     const ajenasTexto = Object.entries(ajenas).filter(([, re]) => re.test(texto)).map(([n]) => n);
@@ -243,7 +256,22 @@ function proponerUna(p, perfil, oferta, tecnologias) {
       ? resultado(`Inglés ${ingles.nivel}${ingles.nota ? `: ${ingles.nota}` : ""}.`, "respaldada", "idiomas del perfil maestro")
       : resultado("", "sin_respaldo", "El perfil maestro no declara inglés.");
   }
-  if (/vives|resides|residencia|ciudad|ubicad|hibrid|presencial|traslad|reubic|desplaz/.test(q)) {
+  const opciones = p.opciones || [];
+  const siNo = opciones.some((o) => /^(si|yes)\b/.test(normalizar(o.texto).trim())) && opciones.some((o) => /^no\b/.test(normalizar(o.texto).trim()));
+  const conRangos = !siNo && opciones.filter((o) => rangoMeses(o.texto)).length >= 2;
+  const palabrasQ = palabras(p.pregunta);
+  const comparteRaiz = (termino) => palabras(termino).some((t) => t.length > 3 && palabrasQ.some((w) => w.length > 3 && w.slice(0, 5) === t.slice(0, 5)));
+
+  if (siNo && /traslad|reubic|cambio de (ciudad|domicilio|residencia)/.test(q) && typeof pref.acepta_reubicacion === "boolean") {
+    return resultado(pref.acepta_reubicacion ? "Sí" : "No", "respaldada", "preferencias.acepta_reubicacion");
+  }
+  if (siNo && /viaj/.test(q) && typeof pref.puede_viajar === "boolean") {
+    return resultado(pref.puede_viajar ? "Sí" : "No", "respaldada", "preferencias.puede_viajar");
+  }
+  if (siNo && dp.ciudad && /vives|vive |resides|reside|residencia|ubicad/.test(q)) {
+    return resultado(q.includes(normalizar(dp.ciudad)) ? "Sí" : "No", "requiere_confirmacion", `datos_personales.ciudad (${dp.ciudad}); confirma si la pregunta incluye tu zona.`);
+  }
+  if (/vives|vive\b|resides|reside\b|residencia|domicilio|barrio|ciudad|ubicad|hibrid|presencial|traslad|reubic|desplaz/.test(q)) {
     const partes = [
       dp.ciudad ? `Vivo en ${dp.ciudad}${dp.pais ? `, ${dp.pais}` : ""}.` : "",
       pref.modalidad ? `Busco modalidad ${pref.modalidad.toLowerCase()}.` : "",
@@ -251,20 +279,62 @@ function proponerUna(p, perfil, oferta, tecnologias) {
     ].filter(Boolean);
     return resultado(frecuente?.valor || partes.join(" "), "requiere_confirmacion", frecuente ? `respuestas_frecuentes.${frecuente.clave}` : "datos personales y preferencias");
   }
+  if (/titulo|formacion academica|estudios|academic|carrera|graduad|bachiller/.test(q) && !/experi/.test(q)) {
+    const estudios = (perfil.formacion || []).filter((f) => f.mostrar_en_cv !== false);
+    if (!estudios.length) return resultado("", "sin_respaldo", "El perfil maestro no tiene formación.");
+    const estado = (f) => (f.graduado === false ? (f.fin ? " (sin terminar)" : " (en curso)") : f.fin ? ` (${String(f.fin).slice(0, 4)})` : "");
+    if (siNo) {
+      const relacionados = estudios.filter((f) => comparteRaiz(`${f.titulo_es || f.titulo || ""} ${f.nivel || ""}`));
+      const terminado = relacionados.find((f) => f.graduado !== false);
+      if (terminado) return resultado("Sí", "requiere_confirmacion", `formacion: ${terminado.titulo_es || terminado.titulo}${estado(terminado)}; confirma que cumple lo que pide.`);
+      return resultado("", "requiere_confirmacion", `Ningún título del perfil coincide claramente: ${estudios.map((f) => (f.titulo_es || f.titulo) + estado(f)).join("; ")}.`);
+    }
+    return resultado(estudios.map((f) => `${f.titulo_es || f.titulo} – ${f.institucion}${estado(f)}`).join("; "), "respaldada", "formacion del perfil maestro");
+  }
+  if (/conocimiento|manej|dominio|domina|sabes/.test(q) && !/experi/.test(q)) {
+    const tecnicas = Object.entries(tecnologias.propias).filter(([, re]) => re.test(q)).map(([n]) => n);
+    const otras = terminosDelPerfil(perfil).filter((t) => !tecnicas.some((n) => normalizar(n) === normalizar(t)) && comparteRaiz(t));
+    const encontrados = [...new Set([...tecnicas, ...otras])];
+    if (!encontrados.length) return resultado("", "sin_respaldo", "Ninguna habilidad del perfil maestro coincide con la pregunta: pregúntale al usuario.");
+    return resultado(siNo ? "Sí" : `Sí: ${encontrados.join(", ")}.`, "requiere_confirmacion", `habilidades del perfil: ${encontrados.join(", ")}; confirma que cubren lo que pide.`);
+  }
   if (/experi|\banos\b|años/.test(q)) {
     const enPregunta = Object.entries(TECNOLOGIAS)
       .filter(([n, re]) => !GENERICAS.includes(n) && re.test(q))
       .map(([n]) => n);
-    const total = anios.desarrollo_total || anios.total;
-    const general = total ? `${total} años de experiencia en desarrollo de software${anios.infraestructura_ti ? `, además de ${anios.infraestructura_ti} años en infraestructura TI` : ""}.` : "";
-    if (!enPregunta.length) return resultado(general, general ? "respaldada" : "sin_respaldo", "anios_experiencia del perfil maestro");
+    const TOTALES = ["total", "desarrollo_total"];
+    const total = anios.desarrollo_total ?? anios.total;
+    const oficio = String(perfil.portales?.magneto?.cargo || perfil.titular?.es || perfil.experiencia?.[0]?.cargo || "").split("|")[0].trim();
+    const general = total ? `${total} años de experiencia${oficio ? ` como ${oficio}` : ""}.` : "";
+    const meses = (v) => (parseFloat(String(v)) || 0) * 12;
+    const umbral = (() => {
+      const m = q.match(/(\d+)\s*(mes|ano)/);
+      return m ? Number(m[1]) * (m[2] === "mes" ? 1 : 12) : null;
+    })();
+    // Claves específicas de anios_experiencia (p. ej. "react": "3", "contabilidad": 3) que coinciden con la pregunta.
+    const especificas = Object.entries(anios).filter(
+      ([clave]) => !TOTALES.includes(clave) && clave.split("_").some((p) => (p.length > 1 && new RegExp(`\\b${escapar(p)}\\b`).test(q)) || comparteRaiz(p))
+    );
+    const soloTiempo = palabrasQ.every((w) => /^(tiempo|experi|anos|cuant|total|laboral|tiene|cuenta|minimo|meses|general|\d+)/.test(w));
+
+    if (!enPregunta.length) {
+      const [clave, valor] = especificas[0] || [];
+      const anosBase = valor ?? total;
+      if (anosBase === undefined) return resultado("", "sin_respaldo", "El perfil maestro no tiene anios_experiencia.");
+      const respaldada = Boolean(clave) || soloTiempo;
+      const fuente = clave ? `anios_experiencia.${clave}` : respaldada ? "anios_experiencia (total)" : "Solo hay años totales: confirma que aplican a lo que pregunta.";
+      if (siNo && umbral) return resultado(meses(anosBase) >= umbral ? "Sí" : "No", respaldada ? "respaldada" : "requiere_confirmacion", `${fuente} (${anosBase} años frente a ${umbral} meses pedidos)`);
+      if (siNo) return clave ? resultado("Sí", "respaldada", fuente) : resultado("", "requiere_confirmacion", "El perfil no declara experiencia específica en esto: pregúntale al usuario.");
+      if (conRangos) {
+        const opcion = opcionPorMeses(opciones, meses(anosBase));
+        return resultado(opcion?.texto || "", respaldada ? "respaldada" : "requiere_confirmacion", `${fuente} (${anosBase} años)`);
+      }
+      const texto = clave ? `${valor} años de experiencia en ${clave.replace(/_/g, " ")}.` : general;
+      return resultado(texto, respaldada ? "respaldada" : "requiere_confirmacion", fuente);
+    }
 
     const propiasEnPregunta = enPregunta.filter((n) => n in tecnologias.propias);
     const ajenasEnPregunta = enPregunta.filter((n) => !(n in tecnologias.propias));
-    // Claves específicas de anios_experiencia (p. ej. "react": "3", "node_nestjs": "2-3") que coinciden con la pregunta.
-    const especificas = Object.entries(anios).filter(
-      ([clave]) => !/^(desarrollo_total|total|infraestructura_ti)$/.test(clave) && clave.split("_").some((p) => p.length > 1 && new RegExp(`\\b${escapar(p)}`).test(q))
-    );
     if (!propiasEnPregunta.length) {
       return resultado("", "sin_respaldo", `El perfil maestro no declara ${ajenasEnPregunta.join(", ")}: pregúntale al usuario, no lo supongas.`);
     }
@@ -272,10 +342,47 @@ function proponerUna(p, perfil, oferta, tecnologias) {
       ? `${especificas.map(([, v]) => v)[0]} años con ${propiasEnPregunta.join(" y ")}.`
       : general;
     const nota = ajenasEnPregunta.length ? ` También pregunta por ${ajenasEnPregunta.join(", ")}, que el perfil no declara.` : "";
+    const anosTec = especificas.length ? especificas[0][1] : total;
+    if (conRangos && anosTec !== undefined) {
+      return resultado(opcionPorMeses(opciones, meses(anosTec))?.texto || "", "requiere_confirmacion", `${especificas.length ? `anios_experiencia.${especificas[0][0]}` : "Solo hay años totales"} (${anosTec} años) con ${propiasEnPregunta.join(", ")}.${nota}`);
+    }
+    if (siNo) return resultado(ajenasEnPregunta.length ? "" : "Sí", "requiere_confirmacion", `Declaras ${propiasEnPregunta.join(", ")}.${nota}`);
     return resultado(texto, "requiere_confirmacion", `${especificas.length ? "anios_experiencia" : "Solo hay años totales"}; confirma los años con ${propiasEnPregunta.join(", ")}.${nota}`);
   }
   if (frecuente) return resultado(frecuente.valor, "respaldada", `respuestas_frecuentes.${frecuente.clave}`);
   return resultado("", "sin_respaldo", "No hay datos en el perfil maestro para responderla: pregúntale al usuario.");
+}
+
+/** Rango en meses de una opción como "Entre 1 y 2 años", "Más de 3 años" o "No tengo experiencia". */
+function rangoMeses(texto) {
+  const t = normalizar(texto);
+  if (/^no\b|sin experiencia|ninguna/.test(t)) return [0, 0];
+  const par = t.match(/(\d+(?:[.,]\d+)?)\s*(?:a|y|-)\s*(\d+(?:[.,]\d+)?)\s*(mes|ano)/);
+  const factor = (u) => (u === "mes" ? 1 : 12);
+  if (par) return [parseFloat(par[1].replace(",", ".")) * factor(par[3]), parseFloat(par[2].replace(",", ".")) * factor(par[3])];
+  const nums = [...t.matchAll(/(\d+(?:[.,]\d+)?)\s*(mes|ano)/g)].map((m) => parseFloat(m[1].replace(",", ".")) * factor(m[2]));
+  if (!nums.length) return null;
+  if (/mas de|mayor|superior|\+/.test(t)) return [nums[0], Infinity];
+  if (/menos de|inferior|hasta/.test(t)) return [0, nums[0]];
+  return nums.length >= 2 ? [nums[0], nums[1]] : [nums[0], nums[0]];
+}
+
+function opcionPorMeses(opciones, meses) {
+  const contienen = opciones.map((o) => ({ o, r: rangoMeses(o.texto) })).filter(({ r }) => r && meses >= r[0] && meses <= r[1]);
+  contienen.sort((a, b) => b.r[0] - a.r[0]);
+  return contienen[0]?.o || null;
+}
+
+/** Opción que corresponde a la respuesta: igualdad exacta, Sí/No por la primera palabra, o la opción como palabra completa. */
+function elegirOpcion(opciones, respuesta) {
+  const limpiar = (t) => normalizar(t).replace(/[.,;:!¡¿?]/g, "").trim();
+  const r = limpiar(respuesta);
+  if (!r) return null;
+  const exacta = opciones.find((o) => limpiar(o.texto) === r);
+  if (exacta) return exacta;
+  if (/^(si|yes)\b/.test(r)) return opciones.find((o) => /^(si|yes)\b/.test(limpiar(o.texto))) || null;
+  if (/^no\b/.test(r)) return opciones.find((o) => /^no\b/.test(limpiar(o.texto))) || null;
+  return opciones.find((o) => limpiar(o.texto).length > 3 && new RegExp(`(^|\\W)${escapar(limpiar(o.texto))}(\\W|$)`).test(r)) || null;
 }
 
 /** Propone respuestas para el cuestionario de filtro a partir del perfil maestro. Nunca envía nada. */
@@ -292,7 +399,7 @@ export async function proponerRespuestas(oferta) {
     let respuesta = propuesta.respuesta;
     if (p.max_caracteres && respuesta.length > p.max_caracteres) respuesta = respuesta.slice(0, p.max_caracteres - 1).trimEnd() + "…";
     if (p.opciones) {
-      const elegida = p.opciones.find((o) => respuesta && normalizar(respuesta).includes(normalizar(o.texto)));
+      const elegida = elegirOpcion(p.opciones, respuesta);
       respuesta = elegida ? elegida.texto : "";
       if (!elegida) propuesta.clasificacion = "requiere_confirmacion";
     }

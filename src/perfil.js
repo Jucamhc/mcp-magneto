@@ -25,14 +25,26 @@ function nivelMagneto(texto) {
 }
 
 // Tipo de estudio (catálogo /sign-up/v1/education/levels); Magneto lo exige junto al país para completar postulaciones.
-function nivelEstudio(titulo) {
-  const t = normalizar(titulo);
+const ES_CURSO = /^(curso|diplomado|seminario|taller|certificacion|certificado|bootcamp)\b/;
+
+function nivelEstudio(f) {
+  const n = normalizar(f.nivel);
+  if (n) {
+    if (/doctor/.test(n)) return 9;
+    if (/especializa|maestr|magister|posgrado/.test(n)) return 5;
+    if (/universit|profesional|pregrado|licenciatura/.test(n)) return 4;
+    if (/tecnolog/.test(n)) return 3;
+    if (/tecnic/.test(n)) return 2;
+    if (/bachiller|secundaria|media/.test(n)) return 1;
+  }
+  const t = normalizar(f.titulo_es || f.titulo);
   if (/doctor|phd/.test(t)) return 9;
   if (/especializa|maestr|magister|master|mba/.test(t)) return 5;
   if (/^tecnolog/.test(t)) return 3;
   if (/^tecnic/.test(t)) return 2;
-  if (/ingenier|licenciatura|profesional|administracion|contadur|derecho|medicina|psicolog|economia|b\.?sc/.test(t)) return 4;
   if (/bachiller/.test(t)) return 1;
+  if (/ingenier|licenciad|licenciatura|profesional|administracion|contadur|derecho|medicina|enfermer|psicolog|economia|arquitect|comunicacion|mercadeo|publicidad|diseno|odontolog|nutricion|fisioterap|trabajo social|sociolog|biolog|quimica|fisica|matematic|estadistic|finanzas|negocios|b\.?sc|b\.?a\b/.test(t)) return 4;
+  if (/universidad|universitari/.test(normalizar(f.institucion))) return 4;
   return null;
 }
 
@@ -180,12 +192,24 @@ function formacionDeseada(f, paisId = null) {
     institute: f.institucion,
     profession: titulo,
     title: titulo,
-    inProgress: !f.fin || f.graduado === false,
+    inProgress: !f.fin && f.graduado !== true,
     startDate: fechaMagneto(f.inicio),
-    endDate: f.fin && f.graduado !== false ? fechaMagneto(f.fin) : null,
-    studyType: nivelEstudio(titulo),
+    endDate: f.fin ? fechaMagneto(f.fin) : null,
+    studyType: nivelEstudio(f),
     countryId: paisId,
   };
+}
+
+const NIVEL_ESTUDIO = { 1: "Bachillerato", 2: "Técnico", 3: "Tecnólogo", 4: "Profesional", 5: "Especialización / Maestría", 9: "Doctorado" };
+
+/** Magneto exige tipo de estudio y no tiene estado "sin terminar" ni cursos en esta sección. */
+function motivoParaOmitir(f, deseada) {
+  if (ES_CURSO.test(normalizar(deseada.title))) return `"${deseada.title}" parece un curso: va en certificaciones, no en formación.`;
+  if (f.graduado === false && f.fin && new Date(fechaMagneto(f.fin)) < new Date()) {
+    return `"${deseada.title}" quedó sin terminar y Magneto no tiene ese estado; no se agrega (si quieres mostrarlo, edítalo en la web).`;
+  }
+  if (!deseada.studyType) return `No pude deducir el tipo de estudio de "${deseada.title}": agrega formacion[].nivel (p. ej. "Universitaria", "Tecnológica", "Técnico") en el perfil maestro.`;
+  return null;
 }
 
 function diferenciasEstudio(actual, deseada) {
@@ -258,7 +282,7 @@ export async function compararPerfil() {
   for (const f of perfil.formacion || []) {
     const actual = (p.studies || []).find((s) => mismoEstudio(s, f.institucion, f.titulo_es || f.titulo));
     const deseada = formacionDeseada(f, paisFormacion);
-    if (!actual && f.mostrar_en_cv === false) continue;
+    if (!actual && (f.mostrar_en_cv === false || motivoParaOmitir(f, deseada))) continue;
     if (!actual) faltan.push(`formacion: ${deseada.title} – ${f.institucion}.`);
     else {
       const cambios = diferenciasEstudio(actual, deseada);
@@ -391,9 +415,14 @@ export async function actualizarPerfil({ seccion, aplicar = false, eliminar_ids 
         operaciones.push({ accion: "aviso", mensaje: `No se agrega "${deseada.title}" porque tiene mostrar_en_cv: false en el perfil maestro.` });
         continue;
       }
+      const omitir = motivoParaOmitir(f, deseada);
+      if (omitir) {
+        operaciones.push({ accion: "aviso", mensaje: omitir });
+        continue;
+      }
       const actual = actuales.find((s) => mismoEstudio(s, deseada.institute, deseada.title));
       if (!actual) {
-        operaciones.push({ accion: "crear", paso: PASO.formacion, despues: `${deseada.title} – ${deseada.institute} (${mes(deseada.startDate)} – ${deseada.inProgress ? "en curso" : mes(deseada.endDate)})`, cuerpo: { studies: [deseada] } });
+        operaciones.push({ accion: "crear", paso: PASO.formacion, despues: `${deseada.title} – ${deseada.institute} (${mes(deseada.startDate)} – ${deseada.inProgress ? "en curso" : mes(deseada.endDate)}; ${NIVEL_ESTUDIO[deseada.studyType]})`, cuerpo: { studies: [deseada] } });
         continue;
       }
       if (borrar.has(Number(actual.id))) continue;
