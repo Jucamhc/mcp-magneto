@@ -132,6 +132,6 @@ Niveles de idiomas y habilidades: 1 básico, 2 intermedio, 3 avanzado, 4 profesi
 
 ## Pendiente de verificar
 
-- Las escrituras de la hoja de vida, la foto y el CV salen del código de la web, pero aún no se han probado contra una cuenta real.
+- La subida de foto y de CV sale del código de la web, pero aún no se ha probado contra una cuenta real (las secciones de la hoja de vida sí).
 - El formato de las filas de `mis-postulaciones` (la cuenta de prueba no tenía procesos).
 - Ofertas con `templateId` (datos extra del registro) y preguntas de opción múltiple.

@@ -117,9 +117,15 @@ function descripcionExperiencia(e) {
   return texto;
 }
 
+function cargoMagneto(e) {
+  const cargo = String(e.cargo || "");
+  const conOficial = e.cargo_oficial && normalizar(e.cargo_oficial) !== normalizar(cargo) ? `${cargo} (cargo oficial: ${e.cargo_oficial})` : cargo;
+  return (conOficial.length <= LIMITE.cargo ? conOficial : cargo).slice(0, LIMITE.cargo);
+}
+
 function experienciaDeseada(e) {
   return {
-    position: String(e.cargo || "").slice(0, LIMITE.cargo),
+    position: cargoMagneto(e),
     company: e.empresa,
     description: descripcionExperiencia(e),
     atPresent: !e.fin,
@@ -219,6 +225,7 @@ export async function compararPerfil() {
   for (const f of perfil.formacion || []) {
     const actual = (p.studies || []).find((s) => mismoEstudio(s, f.institucion, f.titulo_es || f.titulo));
     const deseada = formacionDeseada(f);
+    if (!actual && f.mostrar_en_cv === false) continue;
     if (!actual) faltan.push(`formacion: ${deseada.title} – ${f.institucion}.`);
     else if (mes(actual.startDate) !== mes(deseada.startDate) || Boolean(actual.inProgress) !== deseada.inProgress || (!deseada.inProgress && mes(actual.endDate) !== mes(deseada.endDate))) {
       desactualizado.push(`formacion (id ${actual.id}) ${deseada.title}: fechas o estado distintos (${mes(actual.startDate)}–${actual.inProgress ? "en curso" : mes(actual.endDate)} → ${mes(deseada.startDate)}–${deseada.inProgress ? "en curso" : mes(deseada.endDate)}).`);
@@ -339,6 +346,10 @@ export async function actualizarPerfil({ seccion, aplicar = false, eliminar_ids 
     const actuales = p.studies || [];
     for (const f of perfil.formacion || []) {
       const deseada = formacionDeseada(f);
+      if (f.mostrar_en_cv === false && !actuales.some((s) => mismoEstudio(s, deseada.institute, deseada.title))) {
+        operaciones.push({ accion: "aviso", mensaje: `No se agrega "${deseada.title}" porque tiene mostrar_en_cv: false en el perfil maestro.` });
+        continue;
+      }
       const actual = actuales.find((s) => mismoEstudio(s, deseada.institute, deseada.title));
       if (!actual) {
         operaciones.push({ accion: "crear", paso: PASO.formacion, despues: `${deseada.title} – ${deseada.institute} (${mes(deseada.startDate)} – ${deseada.inProgress ? "en curso" : mes(deseada.endDate)})`, cuerpo: { studies: [deseada] } });
