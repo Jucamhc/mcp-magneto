@@ -2,6 +2,30 @@
   "name": "mcp-magneto",
   "version": "0.1.0",
   "description": "Servidor MCP para buscar ofertas, postular y mantener la hoja de vida en Magneto (magneto365.com, Colombia).",
+  "mcpName": "io.github.Jucamhc/mcp-magneto",
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "empleo",
+    "jobs",
+    "job-search",
+    "claude",
+    "cursor",
+    "magneto",
+    "magneto365",
+    "colombia"
+  ],
+  "author": "Juan Camilo Hoyos",
+  "license": "MIT",
+  "homepage": "https://github.com/Jucamhc/mcp-magneto#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Jucamhc/mcp-magneto.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Jucamhc/mcp-magneto/issues"
+  },
   "type": "module",
   "main": "src/index.js",
   "bin": {
@@ -13,7 +37,8 @@
     "PERFIL-MAESTRO.md",
     "perfil-maestro.schema.json",
     "perfil-maestro.ejemplo.json",
-    "LICENSE"
+    "LICENSE",
+    "server.json"
   ],
   "scripts": {
     "start": "node src/index.js"
@@ -21,7 +46,6 @@
   "engines": {
     "node": ">=20"
   },
-  "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "ajv": "^8.20.0",

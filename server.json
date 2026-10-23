@@ -1,0 +1,51 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.Jucamhc/mcp-magneto",
+  "title": "Magneto",
+  "description": "Busca ofertas, postula y mantiene tu hoja de vida en Magneto (magneto365.com, Colombia).",
+  "repository": {
+    "url": "https://github.com/Jucamhc/mcp-magneto",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "mcp-magneto",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "PERFIL_MAESTRO",
+          "description": "Ruta del perfil maestro (JSON) compartido por los MCP de empleo",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "RAIZ_ARCHIVOS",
+          "description": "Base para las rutas relativas de la foto y el CV",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "MAGNETO_DATA_DIR",
+          "description": "Carpeta de la sesión y respaldos (por defecto ~/.magneto)",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        },
+        {
+          "name": "CHROME_PATH",
+          "description": "Ruta del navegador Chromium usado para iniciar sesión",
+          "isRequired": false,
+          "isSecret": false,
+          "format": "string"
+        }
+      ]
+    }
+  ]
+}
